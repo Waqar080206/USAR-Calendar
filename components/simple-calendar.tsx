@@ -419,6 +419,21 @@ export function SimpleCalendar({ feed, todayKey }: SimpleCalendarProps) {
               </div>
             </div>
           </div>
+
+          {/* Footer with GitHub Link */}
+          <div className="mt-8 pt-6 border-t border-slate-200 text-center">
+            <p className="text-xs text-slate-500">
+              Found this helpful?{" "}
+              <a
+                href="https://github.com/Waqar080206/USAR-Calendar"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-700 hover:underline font-medium"
+              >
+                Star on GitHub
+              </a>
+            </p>
+          </div>
         </div>
       </div>
     </div>
