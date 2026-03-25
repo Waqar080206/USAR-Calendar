@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   description:
     "A responsive academic calendar portal for USAR students with calendar views, events, holidays, and working days calculator.",
   icons: {
-    icon: "https://www.citypng.com/public/uploads/preview/hd-spiderman-chibi-png-701751694950529l7f0wbvf4e.png"
+    icon: "/sm.png"
   }
 };
 
