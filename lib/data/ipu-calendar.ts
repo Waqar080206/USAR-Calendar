@@ -2,131 +2,142 @@ import { CalendarFeed } from "@/lib/types";
 
 export const ipuCalendarFeed: CalendarFeed = {
   semester: {
-    name: "IPU Even Semester 2026",
-    startDate: "2026-01-12",
-    endDate: "2026-06-15",
-    workingWeekdays: [1, 2, 3, 4, 5, 6],
+    name: "USAR Even Semester 2026",
+    startDate: "2026-01-16",
+    endDate: "2026-07-31",
+    workingWeekdays: [1, 2, 3, 4, 5],
     timezone: "Asia/Kolkata"
   },
   events: [
     {
-      id: "orientation-week",
-      title: "Orientation and Timetable Briefing",
+      id: "anugoonj-2026",
+      title: "Anugoonj 2026 - Cultural Festival",
       type: "notice",
-      startDate: "2026-01-12",
-      endDate: "2026-01-13",
+      startDate: "2026-02-04",
+      endDate: "2026-02-06",
       allDay: true,
-      description:
-        "Department-level onboarding, timetable release review, and semester expectations briefing for all enrolled students.",
-      source: "Academic Calendar PDF"
+      description: "25th Annual Cultural Festival",
+      source: "USAR Academic Calendar PDF"
     },
     {
-      id: "classes-begin",
-      title: "Regular Classes Begin",
-      type: "class",
-      startDate: "2026-01-15",
-      endDate: "2026-01-15",
-      allDay: true,
-      description:
-        "Teaching schedule becomes active across all affiliated institutes and schools.",
-      source: "Academic Calendar PDF"
-    },
-    {
-      id: "add-drop-window",
-      title: "Add or Drop Window",
-      type: "registration",
-      startDate: "2026-01-15",
-      endDate: "2026-01-24",
-      allDay: true,
-      description:
-        "Students can finalize electives, resolve section changes, and close registration corrections.",
-      source: "Academic Calendar PDF"
-    },
-    {
-      id: "attendance-advisory",
-      title: "Attendance Advisory Review",
-      type: "notice",
+      id: "synopsis-submission",
+      title: "Synopsis Submission (ARP 452 / ART 454)",
+      type: "deadline",
       startDate: "2026-02-18",
       endDate: "2026-02-18",
       allDay: true,
-      description:
-        "Advisory checkpoint for low attendance and internal progress review.",
-      source: "Academic Calendar PDF"
+      description: "For 8th semester students",
+      source: "USAR Academic Calendar PDF"
     },
     {
-      id: "internal-assessment-1",
-      title: "Internal Assessment I",
+      id: "internal-eval-1",
+      title: "Internal Evaluation I / Major Project Presentation",
       type: "exam",
-      startDate: "2026-03-16",
-      endDate: "2026-03-21",
+      startDate: "2026-03-02",
+      endDate: "2026-03-02",
       allDay: true,
-      description:
-        "First internal assessment window across theory and lab components.",
-      source: "Academic Calendar PDF"
+      description: "For 8th semester (ARP 452 / ART 454)",
+      source: "USAR Academic Calendar PDF"
     },
     {
-      id: "mid-sem-break",
-      title: "Mid-Semester Break",
-      type: "break",
-      startDate: "2026-04-06",
-      endDate: "2026-04-11",
+      id: "midterm-1",
+      title: "Mid Term Examination - I",
+      type: "exam",
+      startDate: "2026-03-09",
+      endDate: "2026-03-16",
       allDay: true,
-      description: "Teaching pause for the mid-semester break period.",
-      source: "Academic Calendar PDF"
+      description: "First mid semester exams",
+      source: "USAR Academic Calendar PDF"
     },
     {
-      id: "ipu-campus-fest",
-      title: "IPU Campus Fest",
+      id: "midterm-2",
+      title: "Mid Term Examination - II",
+      type: "exam",
+      startDate: "2026-04-20",
+      endDate: "2026-04-27",
+      allDay: true,
+      description: "Second mid semester exams",
+      source: "USAR Academic Calendar PDF"
+    },
+    {
+      id: "genai-summit",
+      title: "Prompt Craft: Generative AI Summit 2026",
       type: "notice",
-      startDate: "2026-04-17",
-      endDate: "2026-04-18",
+      startDate: "2026-04-06",
+      endDate: "2026-04-06",
       allDay: true,
-      description:
-        "University-wide cultural and club activities with reduced academic operations.",
-      source: "Academic Calendar PDF"
+      description: "Designing Intelligence Summit",
+      source: "USAR Academic Calendar PDF"
     },
     {
-      id: "feedback-window",
-      title: "Course Feedback Window",
-      type: "deadline",
-      startDate: "2026-04-27",
-      endDate: "2026-05-02",
+      id: "fdp",
+      title: "Faculty Development Program (FDP)",
+      type: "notice",
+      startDate: "2026-04-20",
+      endDate: "2026-04-25",
       allDay: true,
-      description:
-        "Students submit course and faculty feedback before final examination scheduling closes.",
-      source: "Academic Calendar PDF"
+      description: "Faculty training program",
+      source: "USAR Academic Calendar PDF"
     },
     {
-      id: "practical-exams",
-      title: "Practical Examinations",
+      id: "internal-eval-2",
+      title: "Internal Evaluation II / Major Project Presentation",
       type: "exam",
-      startDate: "2026-05-18",
-      endDate: "2026-05-23",
+      startDate: "2026-04-28",
+      endDate: "2026-04-28",
       allDay: true,
-      description: "Lab practicals and viva evaluations for eligible courses.",
-      source: "Academic Calendar PDF"
+      description: "For 8th semester",
+      source: "USAR Academic Calendar PDF"
     },
     {
-      id: "end-sem-exams",
-      title: "End-Semester Examinations",
+      id: "afsan-2",
+      title: "Afsana 2.0 - Farewell Ceremony",
+      type: "notice",
+      startDate: "2026-04-29",
+      endDate: "2026-04-29",
+      allDay: true,
+      description: "Farewell for Batch of 2026",
+      source: "USAR Academic Calendar PDF"
+    },
+    {
+      id: "lab-exams",
+      title: "Internal Lab / Practical Examinations",
       type: "exam",
-      startDate: "2026-05-25",
-      endDate: "2026-06-10",
+      startDate: "2026-05-01",
+      endDate: "2026-05-06",
       allDay: true,
-      description:
-        "Theory examination period for the semester. Final room allocation and admit cards are expected separately.",
-      source: "Academic Calendar PDF"
+      description: "Internal practical exams",
+      source: "USAR Academic Calendar PDF"
     },
     {
-      id: "re-registration",
-      title: "Next Semester Re-Registration",
-      type: "registration",
-      startDate: "2026-06-12",
-      endDate: "2026-06-15",
+      id: "term-end-practical",
+      title: "Term End Practical Examinations",
+      type: "exam",
+      startDate: "2026-05-07",
+      endDate: "2026-05-21",
       allDay: true,
-      description:
-        "Window to confirm the next semester and clear remaining portal actions.",
-      source: "Academic Calendar PDF"
+      description: "Final practical exams",
+      source: "USAR Academic Calendar PDF"
+    },
+    {
+      id: "term-end-theory",
+      title: "Term End Theory Examinations",
+      type: "exam",
+      startDate: "2026-05-22",
+      endDate: "2026-06-13",
+      allDay: true,
+      description: "Final theory exams",
+      source: "USAR Academic Calendar PDF"
+    },
+    {
+      id: "summer-internship",
+      title: "Summer Training / Internship Period",
+      type: "break",
+      startDate: "2026-06-15",
+      endDate: "2026-07-31",
+      allDay: true,
+      description: "For 4th and 6th semester students",
+      source: "USAR Academic Calendar PDF"
     }
   ],
   holidays: [
@@ -135,50 +146,126 @@ export const ipuCalendarFeed: CalendarFeed = {
       name: "Republic Day",
       date: "2026-01-26",
       category: "Gazetted Holiday",
-      source: "Holiday List PDF",
-      description: "Official university closure."
+      source: "USAR Academic Calendar PDF"
     },
     {
-      id: "festival-holiday",
-      name: "Festival Holiday",
+      id: "holi",
+      name: "Holi",
       date: "2026-03-04",
-      category: "University Holiday",
-      source: "Holiday List PDF",
-      description:
-        "Placeholder holiday entry for the MVP seed data. Replace with the official PDF value."
+      category: "Festival Holiday",
+      source: "USAR Academic Calendar PDF"
     },
     {
-      id: "special-closure",
-      name: "Special Closure",
-      date: "2026-03-20",
-      category: "University Holiday",
-      source: "Holiday List PDF",
-      description:
-        "Seed entry representing a university-wide holiday pulled from the holiday PDF."
+      id: "id-ul-fitr",
+      name: "Id-ul-Fitr",
+      date: "2026-03-21",
+      category: "Festival Holiday",
+      source: "USAR Academic Calendar PDF"
+    },
+    {
+      id: "ram-navami",
+      name: "Ram Navami",
+      date: "2026-03-26",
+      category: "Festival Holiday",
+      source: "USAR Academic Calendar PDF"
+    },
+    {
+      id: "mahavir-jayanti",
+      name: "Mahavir Jayanti",
+      date: "2026-03-31",
+      category: "Festival Holiday",
+      source: "USAR Academic Calendar PDF"
     },
     {
       id: "good-friday",
       name: "Good Friday",
       date: "2026-04-03",
       category: "Gazetted Holiday",
-      source: "Holiday List PDF",
-      description: "Official university closure."
+      source: "USAR Academic Calendar PDF"
     },
     {
-      id: "ambedkar-jayanti",
-      name: "Ambedkar Jayanti",
-      date: "2026-04-14",
-      category: "Gazetted Holiday",
-      source: "Holiday List PDF",
-      description: "Official university closure."
-    },
-    {
-      id: "labour-day",
-      name: "Labour Day",
+      id: "buddha-purnima",
+      name: "Buddha Purnima",
       date: "2026-05-01",
+      category: "Festival Holiday",
+      source: "USAR Academic Calendar PDF"
+    },
+    {
+      id: "id-ul-zuha",
+      name: "Id-ul-Zuha (Bakrid)",
+      date: "2026-05-27",
+      category: "Festival Holiday",
+      source: "USAR Academic Calendar PDF"
+    },
+    {
+      id: "muharram",
+      name: "Muharram",
+      date: "2026-06-26",
+      category: "Festival Holiday",
+      source: "USAR Academic Calendar PDF"
+    },
+    {
+      id: "independence-day",
+      name: "Independence Day",
+      date: "2026-08-15",
       category: "Gazetted Holiday",
-      source: "Holiday List PDF",
-      description: "Official university closure."
+      source: "USAR Academic Calendar PDF"
+    },
+    {
+      id: "milad-un-nabi",
+      name: "Milad-un-Nabi",
+      date: "2026-08-26",
+      category: "Festival Holiday",
+      source: "USAR Academic Calendar PDF"
+    },
+    {
+      id: "janmashtami",
+      name: "Janmashtami",
+      date: "2026-09-04",
+      category: "Festival Holiday",
+      source: "USAR Academic Calendar PDF"
+    },
+    {
+      id: "gandhi-jayanti",
+      name: "Gandhi Jayanti",
+      date: "2026-10-02",
+      category: "Gazetted Holiday",
+      source: "USAR Academic Calendar PDF"
+    },
+    {
+      id: "dussehra",
+      name: "Dussehra",
+      date: "2026-10-20",
+      category: "Festival Holiday",
+      source: "USAR Academic Calendar PDF"
+    },
+    {
+      id: "valmiki-jayanti",
+      name: "Valmiki Jayanti",
+      date: "2026-10-26",
+      category: "Festival Holiday",
+      source: "USAR Academic Calendar PDF"
+    },
+    {
+      id: "diwali",
+      name: "Diwali",
+      date: "2026-11-08",
+      category: "Festival Holiday",
+      source: "USAR Academic Calendar PDF"
+    },
+    {
+      id: "guru-nanak-jayanti",
+      name: "Guru Nanak Jayanti",
+      date: "2026-11-24",
+      category: "Festival Holiday",
+      source: "USAR Academic Calendar PDF"
+    },
+    {
+      id: "christmas-day",
+      name: "Christmas Day",
+      date: "2026-12-25",
+      category: "Gazetted Holiday",
+      source: "USAR Academic Calendar PDF"
     }
   ],
   announcements: [
