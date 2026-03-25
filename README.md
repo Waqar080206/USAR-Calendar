@@ -312,3 +312,17 @@ For issues or questions:
 
 **Built for USAR Students** 🎓  
 *Making academic calendars simple, visual, and accessible.*
+
+---
+
+## Support This Project
+
+If you find this calendar useful, please consider starring the repository on GitHub!
+
+[![GitHub Stars](https://img.shields.io/github/stars/Waqar080206/USAR-Calendar?style=social)](https://github.com/Waqar080206/USAR-Calendar)
+
+[⭐ Star on GitHub](https://github.com/Waqar080206/USAR-Calendar) - Your support helps us improve and maintain this project!
+
+---
+
+*Last Updated: March 2026*
