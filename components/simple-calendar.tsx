@@ -1,441 +1,866 @@
 "use client";
 
-import { eachDayOfInterval, endOfMonth, format, isSameMonth, startOfMonth, getDay, isSameDay } from "date-fns";
-import { useState } from "react";
-import { CalendarFeed } from "@/lib/types";
-import { getCalendarItems, getTodayKey, toDateKey, parseDateKey } from "@/lib/calendar";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
+import {
+  addMonths,
+  differenceInCalendarDays,
+  format,
+  isSameDay
+} from "date-fns";
+import {
+  AnimatePresence,
+  motion,
+  useReducedMotion,
+  Variants
+} from "framer-motion";
+
+import { CalendarGrid, CalendarView } from "@/components/calendar-grid";
+import {
+  AnimatedProgress,
+  CountUp,
+  Panel,
+  Reveal,
+  Stagger,
+  ViewTransition,
+  staggerItem
+} from "@/components/motion-primitives";
+import {
+  resolveInitialSemesterId,
+  SemesterSwitcher
+} from "@/components/semester-switcher";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { useTodayKey } from "@/components/use-today-key";
+import {
+  CalendarItem,
+  eventTypeMeta,
+  getCalendarItems,
+  getDisplayRange,
+  getDurationLabel,
+  getItemsForDate,
+  getSemesterScope,
+  getSemesterStats,
+  parseDateKey,
+  parseMonthKey,
+  toDateKey,
+  toMonthKey
+} from "@/lib/calendar";
+import { CalendarFeed, getSemester, SemesterConfig } from "@/lib/types";
+import { readQueryValue } from "@/lib/utils";
 
 interface SimpleCalendarProps {
   feed: CalendarFeed;
-  todayKey: string;
+  /** Rendered date at request time; the client keeps it current from here. */
+  serverTodayKey: string;
+  initialQuery: Record<string, string | string[] | undefined>;
 }
 
-export function SimpleCalendar({ feed, todayKey }: SimpleCalendarProps) {
-  const today = parseDateKey(todayKey);
-  const [currentMonth, setCurrentMonth] = useState(today);
-  const [selectedDate, setSelectedDate] = useState(today);
-  const [showCalculator, setShowCalculator] = useState(false);
-  const [workingDaysStartDate, setWorkingDaysStartDate] = useState<Date | null>(null);
-  const [workingDaysEndDate, setWorkingDaysEndDate] = useState<Date | null>(null);
-  
-  const allItems = getCalendarItems(feed);
-  
-  // Helper function to categorize event color
-  const getEventColor = (event: any) => {
-    const titleLower = event.title.toLowerCase();
-    
-    if (titleLower.includes("mid term")) {
-      return "bg-cyan-500";
-    }
-    
-    if (titleLower.includes("term end") || titleLower.includes("end-semester")) {
-      return "bg-lime-600";
-    }
-    
-    if (titleLower.includes("summer") || titleLower.includes("internship")) {
-      return "bg-fuchsia-700";
-    }
-    
-    switch (event.type) {
-      case "exam":
-        return "bg-orange-600";
-      case "holiday":
-        return "bg-rose-600";
-      case "deadline":
-        return "bg-yellow-500";
-      case "class":
-        return "bg-indigo-600";
-      case "registration":
-        return "bg-emerald-500";
-      case "break":
-        return "bg-teal-500";
-      default:
-        return "bg-slate-600";
-    }
+type ViewMode = CalendarView;
+
+interface PortalState {
+  semesterId: string;
+  monthKey: string;
+  dateKey: string;
+  view: ViewMode;
+  eventId: string | null;
+}
+
+const views: Array<{ value: ViewMode; label: string }> = [
+  { value: "month", label: "Month" },
+  { value: "week", label: "Week" },
+  { value: "agenda", label: "Agenda" }
+];
+
+function isValidDateKey(value: string | undefined): value is string {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+
+  const date = parseDateKey(value);
+  return !Number.isNaN(date.getTime()) && toDateKey(date) === value;
+}
+
+function isValidMonthKey(value: string | undefined): value is string {
+  if (!value || !/^\d{4}-\d{2}$/.test(value)) {
+    return false;
+  }
+
+  const month = parseMonthKey(value);
+  return !Number.isNaN(month.getTime()) && toMonthKey(month) === value;
+}
+
+function buildInitialState(
+  query: SimpleCalendarProps["initialQuery"],
+  todayKey: string,
+  feed: CalendarFeed
+): PortalState {
+  const rawSemester = readQueryValue(query.sem);
+  const rawDate = readQueryValue(query.date);
+  const rawMonth = readQueryValue(query.month);
+  const rawView = readQueryValue(query.view);
+  const rawEvent = readQueryValue(query.event);
+
+  const semesterId = resolveInitialSemesterId(feed, todayKey, rawSemester);
+
+  const dateKey = isValidDateKey(rawDate) ? rawDate : todayKey;
+  const monthKey = isValidMonthKey(rawMonth)
+    ? rawMonth
+    : toMonthKey(parseDateKey(dateKey));
+  const view = rawView === "week" || rawView === "agenda" ? rawView : "month";
+
+  return {
+    semesterId,
+    monthKey,
+    dateKey,
+    view,
+    eventId: rawEvent ?? null
   };
+}
 
-  const getEventBgColor = (event: any) => {
-    const titleLower = event.title.toLowerCase();
-    if (titleLower.includes("summer") || titleLower.includes("internship")) {
-      return "bg-fuchsia-700 opacity-80";
-    }
-    return getEventColor(event);
-  };
-
-  // Calculate working days between two dates
-  const calculateWorkingDays = (startDate: Date, endDate: Date) => {
-    if (startDate > endDate) {
-      [startDate, endDate] = [endDate, startDate];
-    }
-
-    let workingDays = 0;
-    let holidayCount = 0;
-    const current = new Date(startDate);
-
-    while (current <= endDate) {
-      const dayOfWeek = getDay(current);
-      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-      const dateKey = toDateKey(current);
-      const isHoliday = feed.holidays.some(h => h.date === dateKey);
-
-      if (!isWeekend && !isHoliday) {
-        workingDays++;
-      } else if (isHoliday) {
-        holidayCount++;
-      }
-
-      current.setDate(current.getDate() + 1);
-    }
-
-    return { workingDays, holidayCount };
-  };
-  
-  // Get all days to display
-  const monthStart = startOfMonth(currentMonth);
-  const monthEnd = endOfMonth(currentMonth);
-  const startDate = new Date(monthStart);
-  startDate.setDate(startDate.getDate() - getDay(monthStart));
-  const endDate = new Date(monthEnd);
-  endDate.setDate(endDate.getDate() + (6 - getDay(monthEnd)));
-  
-  const calendarDays = eachDayOfInterval({ start: startDate, end: endDate });
-  
-  // Get events for selected date
-  const selectedDateKey = toDateKey(selectedDate);
-  const selectedDateEvents = allItems.filter(item => 
-    (item.startDate <= selectedDateKey && selectedDateKey <= item.endDate)
+export function SimpleCalendar({
+  feed,
+  serverTodayKey,
+  initialQuery
+}: SimpleCalendarProps) {
+  const prefersReducedMotion = useReducedMotion();
+  const todayKey = useTodayKey(feed.semesters[0].timezone, serverTodayKey);
+  const [state, setState] = useState<PortalState>(() =>
+    buildInitialState(initialQuery, serverTodayKey, feed)
   );
-  
-  // Get holidays for current month
-  const currentMonthHolidays = feed.holidays.filter(holiday => {
-    const holidayDate = parseDateKey(holiday.date);
-    return isSameMonth(holidayDate, currentMonth);
-  });
-  
-  // Get all events as map for quick lookup
-  const eventsByDate: Record<string, typeof allItems> = {};
-  allItems.forEach(item => {
-    const start = parseDateKey(item.startDate);
-    const end = parseDateKey(item.endDate);
-    const current = new Date(start);
-    
-    while (current <= end) {
-      const dateKey = toDateKey(current);
-      if (!eventsByDate[dateKey]) {
-        eventsByDate[dateKey] = [];
-      }
-      eventsByDate[dateKey].push(item);
-      current.setDate(current.getDate() + 1);
+  const [shareStatus, setShareStatus] = useState<string | null>(null);
+  const directionRef = useRef(0);
+
+  // When the day rolls over, follow it if the view was sitting on "today".
+  // A date the user picked, or one pinned by the URL, is left alone.
+  const followsToday = !isValidDateKey(readQueryValue(initialQuery.date));
+  const lastTodayKey = useRef(serverTodayKey);
+  useEffect(() => {
+    if (todayKey === lastTodayKey.current) {
+      return;
     }
-  });
 
-  const weekdayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  
+    const previousTodayKey = lastTodayKey.current;
+    lastTodayKey.current = todayKey;
+
+    if (!followsToday) {
+      return;
+    }
+
+    setState((current) =>
+      current.dateKey === previousTodayKey
+        ? {
+            ...current,
+            dateKey: todayKey,
+            monthKey: toMonthKey(parseDateKey(todayKey))
+          }
+        : current
+    );
+  }, [followsToday, todayKey]);
+
+  const scope = useMemo(
+    () => getSemesterScope(feed, state.semesterId),
+    [feed, state.semesterId]
+  );
+
+  const { semester } = scope;
+
+  const semesterItems = useMemo(
+    () => getCalendarItems(scope),
+    [scope]
+  );
+
+  const stats = useMemo(
+    () => getSemesterStats(semester, scope.holidays, todayKey),
+    [semester, scope.holidays, todayKey]
+  );
+  const selectedDateItems = useMemo(
+    () => getItemsForDate(semesterItems, state.dateKey),
+    [semesterItems, state.dateKey]
+  );
+  const selectedItem = useMemo(
+    () =>
+      semesterItems.find((item) => item.id === state.eventId) ??
+      selectedDateItems[0] ??
+      null,
+    [semesterItems, selectedDateItems, state.eventId]
+  );
+
+  const monthDate = useMemo(
+    () => parseMonthKey(state.monthKey),
+    [state.monthKey]
+  );
+
+  const progressPercent = Math.max(
+    0,
+    Math.min(
+      100,
+      Math.round((stats.elapsedDays / Math.max(stats.totalDays, 1)) * 100)
+    )
+  );
+
+  const dayOfYear = useMemo(() => {
+    const today = parseDateKey(todayKey);
+    const start = parseDateKey(semester.startDate);
+    return differenceInCalendarDays(today, start) + 1;
+  }, [todayKey, semester.startDate]);
+
+  const isLiveToday = useMemo(() => {
+    const { startDate, endDate } = semester;
+    return todayKey >= startDate && todayKey <= endDate;
+  }, [todayKey, semester]);
+
+  useEffect(() => {
+    if (!state.eventId) {
+      return;
+    }
+
+    if (!semesterItems.some((item) => item.id === state.eventId)) {
+      setState((current) => ({ ...current, eventId: null }));
+    }
+  }, [semesterItems, state.eventId]);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    params.set("sem", state.semesterId);
+    params.set("month", state.monthKey);
+    params.set("date", state.dateKey);
+    params.set("view", state.view);
+
+    if (state.eventId) {
+      params.set("event", state.eventId);
+    }
+
+    window.history.replaceState(
+      null,
+      "",
+      `${window.location.pathname}?${params.toString()}`
+    );
+  }, [state]);
+
+  useEffect(() => {
+    if (!shareStatus) {
+      return undefined;
+    }
+
+    const timeout = window.setTimeout(() => setShareStatus(null), 2400);
+    return () => window.clearTimeout(timeout);
+  }, [shareStatus]);
+
+  const selectDate = useCallback((dateKey: string) => {
+    directionRef.current = 0;
+    setState((current) => ({
+      ...current,
+      dateKey,
+      monthKey: toMonthKey(parseDateKey(dateKey)),
+      eventId: null
+    }));
+  }, []);
+
+  function shiftMonth(delta: number) {
+    directionRef.current = delta;
+    setState((current) => {
+      const nextMonth = addMonths(parseMonthKey(current.monthKey), delta);
+
+      return {
+        ...current,
+        monthKey: toMonthKey(nextMonth),
+        dateKey: toDateKey(nextMonth),
+        eventId: null
+      };
+    });
+  }
+
+  function goToToday() {
+    directionRef.current = 0;
+    setState((current) => ({
+      ...current,
+      dateKey: todayKey,
+      monthKey: toMonthKey(parseDateKey(todayKey)),
+      eventId: null
+    }));
+  }
+
+  function setView(view: ViewMode) {
+    setState((current) => ({ ...current, view }));
+  }
+
+  function selectSemester(semesterId: string) {
+    directionRef.current = 0;
+    const next = getSemester(feed, semesterId);
+    setState((current) => ({
+      ...current,
+      semesterId: next.id,
+      dateKey: todayKey,
+      monthKey: toMonthKey(parseDateKey(todayKey)),
+      eventId: null
+    }));
+  }
+
+  async function shareCalendar() {
+    const url = window.location.href;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: `${semester.name} calendar`,
+          text: "Academic calendar, holidays and working days in one place.",
+          url
+        });
+        setShareStatus("Shared");
+        return;
+      }
+
+      await navigator.clipboard.writeText(url);
+      setShareStatus("Link copied");
+    } catch {
+      setShareStatus("Share cancelled");
+    }
+  }
+
+  const selectedDate = parseDateKey(state.dateKey);
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-8">
-          <div>
-            <h1 className="text-3xl sm:text-4xl font-bold text-slate-900">Academic Calendar</h1>
-            <p className="mt-2 text-sm sm:text-base text-slate-600">USAR Academic Events & Deadlines</p>
-          </div>
+    <div className="relative min-h-dvh overflow-x-hidden">
+      <AmbientBackdrop />
 
-          {/* Working Days Calculator Toggle Button */}
-          <button
-            onClick={() => setShowCalculator(!showCalculator)}
-            className="px-4 sm:px-6 py-2 sm:py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-200 text-sm sm:text-base whitespace-nowrap"
-          >
-            {showCalculator ? "Hide Calculator" : "Working Days"}
-          </button>
-        </div>
+      <div className="relative mx-auto max-w-[1680px] px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
+        <Reveal>
+          <TopBar
+            semesterName={semester.name}
+            shareStatus={shareStatus}
+            onShare={shareCalendar}
+          />
+        </Reveal>
 
-        {/* Working Days Calculator - Collapsible */}
-        {showCalculator && (
-          <div className="mb-8 rounded-xl border border-slate-200 bg-white p-6 sm:p-8 shadow-lg">
-            <div className="mb-6 pb-4 border-b border-slate-200">
-              <h3 className="text-lg sm:text-xl font-bold text-slate-900">Calculate Working Days</h3>
-              <p className="text-sm text-slate-600 mt-1">Excludes weekends and holidays</p>
-            </div>
+        <Reveal delay={0.06}>
+          <Hero semester={semester} todayKey={todayKey} isLiveToday={isLiveToday} />
+        </Reveal>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-              <div>
-                <label className="block text-sm font-semibold text-slate-800 mb-2">From Date</label>
-                <input
-                  type="date"
-                  value={workingDaysStartDate ? format(workingDaysStartDate, "yyyy-MM-dd") : ""}
-                  onChange={(e) => setWorkingDaysStartDate(e.target.value ? new Date(e.target.value) : null)}
-                  className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition bg-slate-50 hover:bg-white"
-                />
-              </div>
+        <Reveal delay={0.09}>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <SemesterSwitcher
+              feed={feed}
+              activeSemester={semester}
+              todayKey={todayKey}
+              onSelect={selectSemester}
+            />
 
-              <div>
-                <label className="block text-sm font-semibold text-slate-800 mb-2">To Date</label>
-                <input
-                  type="date"
-                  value={workingDaysEndDate ? format(workingDaysEndDate, "yyyy-MM-dd") : ""}
-                  onChange={(e) => setWorkingDaysEndDate(e.target.value ? new Date(e.target.value) : null)}
-                  className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition bg-slate-50 hover:bg-white"
-                />
-              </div>
-            </div>
-
-            {workingDaysStartDate && workingDaysEndDate && (
-              <div className="mt-6 space-y-3 border-t border-slate-200 pt-6">
-                {(() => {
-                  const { workingDays, holidayCount } = calculateWorkingDays(workingDaysStartDate, workingDaysEndDate);
-                  const totalDays = Math.ceil((workingDaysEndDate.getTime() - workingDaysStartDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-                  const weekendDays = totalDays - workingDays - holidayCount;
-                  
-                  return (
-                    <>
-                      <div className="rounded-lg bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 p-4">
-                        <p className="text-xs font-semibold text-green-700 uppercase tracking-wide">Working Days</p>
-                        <p className="text-3xl sm:text-4xl font-bold text-green-600 mt-2">{workingDays}</p>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="rounded-lg bg-gradient-to-br from-red-50 to-rose-50 border border-red-200 p-4">
-                          <p className="text-xs font-semibold text-red-700 uppercase tracking-wide">Holidays</p>
-                          <p className="text-2xl sm:text-3xl font-bold text-red-600 mt-2">{holidayCount}</p>
-                        </div>
-                        <div className="rounded-lg bg-gradient-to-br from-slate-50 to-gray-100 border border-slate-300 p-4">
-                          <p className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Weekends</p>
-                          <p className="text-2xl sm:text-3xl font-bold text-slate-600 mt-2">{weekendDays}</p>
-                        </div>
-                      </div>
-                    </>
-                  );
-                })()}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Calendar */}
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-          {/* Month Navigation */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-slate-200 px-4 sm:px-6 py-4 gap-3 sm:gap-0">
-            <h2 className="text-xl sm:text-2xl font-bold text-slate-900">
-              {format(currentMonth, "MMMM yyyy")}
-            </h2>
-            <div className="flex gap-2 w-full sm:w-auto">
-              <button
-                onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}
-                className="flex-1 sm:flex-none rounded-lg px-3 sm:px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 transition"
-              >
-                Previous
-              </button>
-              <button
-                onClick={() => setCurrentMonth(today)}
-                className="flex-1 sm:flex-none rounded-lg px-3 sm:px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 transition"
-              >
-                Today
-              </button>
-              <button
-                onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
-                className="flex-1 sm:flex-none rounded-lg px-3 sm:px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 transition"
-              >
-                Next
-              </button>
-            </div>
-          </div>
-
-          {/* Weekday Headers */}
-          <div className="grid grid-cols-7 gap-0 border-b border-slate-200 bg-slate-50">
-            {weekdayLabels.map(day => (
-              <div key={day} className="border-r border-slate-200 px-2 sm:px-4 py-3 text-center text-xs sm:text-sm font-bold text-slate-700 last:border-r-0">
-                {day}
-              </div>
-            ))}
-          </div>
-
-          {/* Calendar Days */}
-          <div className="grid grid-cols-7 gap-0">
-            {calendarDays.map((day, idx) => {
-              const dateKey = toDateKey(day);
-              const dayEvents = eventsByDate[dateKey] || [];
-              const isCurrentMonth = isSameMonth(day, currentMonth);
-              const isToday = isSameDay(day, today);
-              const isSelected = isSameDay(day, selectedDate);
-              const dayOfWeek = getDay(day);
-              const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-              const isHoliday = isCurrentMonth && feed.holidays.some(h => h.date === dateKey);
-              
-              return (
-                <div
-                  key={idx}
-                  onClick={() => setSelectedDate(day)}
-                  className={`min-h-20 sm:min-h-32 cursor-pointer border-r border-b border-slate-200 p-2 sm:p-3 last:border-r-0 transition hover:shadow-md ${
-                    isHoliday ? "bg-red-500" :
-                    !isCurrentMonth ? "opacity-15 bg-white" :
-                    isWeekend ? "bg-slate-50" : 
-                    "bg-white"
-                  } ${isToday && !isHoliday ? "ring-2 ring-inset ring-blue-500" : ""} ${
-                    isSelected && !isHoliday ? "ring-2 ring-inset ring-blue-500" : ""
-                  }`}
-                >
-                  <div className={`text-xs sm:text-sm font-semibold ${
-                    isHoliday ? "text-white" :
-                    !isCurrentMonth ? "text-slate-400" :
-                    "text-slate-900"
-                  } ${isToday && !isHoliday ? "text-blue-600" : ""}`}>
-                    {format(day, "d")}
-                  </div>
-                  
-                  {isHoliday && (
-                    <div className="mt-1 text-xs font-bold text-white truncate">
-                      {feed.holidays.find(h => h.date === dateKey)?.name}
-                    </div>
-                  )}
-                  
-                  {!isHoliday && (
-                    <div className="mt-1 sm:mt-2 space-y-0.5 sm:space-y-1">
-                      {dayEvents.slice(0, 1).map((event, i) => {
-                        const titleLower = event.title.toLowerCase();
-                        const isSummerEvent = titleLower.includes("summer") || titleLower.includes("internship");
-                        
-                        return (
-                          <div
-                            key={i}
-                            className={`truncate rounded text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 font-semibold text-white ${getEventBgColor(event)} ${
-                              isSummerEvent ? "border border-dashed border-yellow-300" : ""
-                            }`}
-                          >
-                            {event.title}
-                          </div>
-                        );
-                      })}
-                      {dayEvents.length > 1 && (
-                        <div className="text-xs text-slate-500 px-1">
-                          +{dayEvents.length - 1}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Details Section */}
-        <div className="mt-8 space-y-6">
-          {currentMonthHolidays.length > 0 && (
-            <div>
-              <h3 className="mb-4 text-lg sm:text-xl font-bold text-slate-900">
-                Holidays in {format(currentMonth, "MMMM yyyy")}
-              </h3>
-              <div className="space-y-2 sm:space-y-3">
-                {currentMonthHolidays.map(holiday => (
-                  <div key={holiday.id} className="rounded-lg border-l-4 border-red-500 bg-red-50 p-4">
-                    <h4 className="font-semibold text-red-900 text-sm sm:text-base">{holiday.name}</h4>
-                    <p className="text-xs sm:text-sm text-red-700 mt-1">{format(parseDateKey(holiday.date), "EEEE, MMMM d, yyyy")}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {isSameMonth(selectedDate, currentMonth) ? (
-            <div>
-              <h3 className="mb-4 text-lg sm:text-xl font-bold text-slate-900">
-                Events on {format(selectedDate, "EEEE, MMMM d, yyyy")}
-              </h3>
-              
-              {selectedDateEvents.length > 0 ? (
-                <div className="space-y-3">
-                  {selectedDateEvents.map(event => (
-                    <div key={event.id} className="rounded-lg border border-slate-200 bg-white p-4 hover:shadow-md transition">
-                      <div className="flex items-start justify-between gap-4 flex-col sm:flex-row">
-                        <div className="flex-1 w-full sm:w-auto">
-                          <div className="flex items-center gap-2 mb-2 flex-wrap">
-                            <span className={`inline-block rounded-full px-3 py-1 text-xs font-semibold text-white ${getEventColor(event)}`}>
-                              {event.type.charAt(0).toUpperCase() + event.type.slice(1)}
-                            </span>
-                          </div>
-                          <h4 className="font-semibold text-slate-900 text-sm sm:text-base">{event.title}</h4>
-                          <p className="mt-1 text-sm text-slate-600">{event.description}</p>
-                          {event.startDate !== event.endDate && (
-                            <p className="mt-2 text-xs text-slate-500">
-                              {event.startDate === selectedDateKey ? "Starts today" : "Continues"} • Ends {format(parseDateKey(event.endDate), "MMM d")}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="rounded-lg bg-slate-50 p-6 sm:p-8 text-center border border-slate-200">
-                  <p className="text-slate-600 text-sm sm:text-base">No events scheduled for this date</p>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="rounded-lg bg-blue-50 p-6 sm:p-8 text-center border border-blue-200">
-              <p className="text-blue-700 text-sm sm:text-base">Select a date in {format(currentMonth, "MMMM yyyy")} to view event details</p>
-            </div>
-          )}
-
-          {/* Legend */}
-          <div className="rounded-xl bg-slate-50 p-6 sm:p-8 border border-slate-200">
-            <h3 className="mb-4 text-lg sm:text-xl font-bold text-slate-900">Color Legend</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-              <div className="flex items-center gap-3">
-                <div className="h-4 w-4 rounded flex-shrink-0 bg-cyan-500"></div>
-                <span className="text-xs sm:text-sm text-slate-700">Mid-Sem Exams</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="h-4 w-4 rounded flex-shrink-0 bg-lime-600"></div>
-                <span className="text-xs sm:text-sm text-slate-700">End-Sem Exams</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="h-4 w-4 rounded border-2 border-dashed border-yellow-300 flex-shrink-0 bg-fuchsia-700"></div>
-                <span className="text-xs sm:text-sm text-slate-700">Summer Training</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="h-4 w-4 rounded flex-shrink-0 bg-orange-600"></div>
-                <span className="text-xs sm:text-sm text-slate-700">Exams</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="h-4 w-4 rounded flex-shrink-0 bg-emerald-500"></div>
-                <span className="text-xs sm:text-sm text-slate-700">Registration</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="h-4 w-4 rounded flex-shrink-0 bg-rose-600"></div>
-                <span className="text-xs sm:text-sm text-slate-700">Holidays</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="h-4 w-4 rounded flex-shrink-0 bg-yellow-500"></div>
-                <span className="text-xs sm:text-sm text-slate-700">Deadline</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="h-4 w-4 rounded flex-shrink-0 bg-indigo-600"></div>
-                <span className="text-xs sm:text-sm text-slate-700">Class</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="h-4 w-4 rounded flex-shrink-0 bg-teal-500"></div>
-                <span className="text-xs sm:text-sm text-slate-700">Break</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Footer with GitHub Link */}
-          <div className="mt-8 pt-6 border-t border-slate-200 text-center">
-            <p className="text-xs text-slate-500">
-              Found this helpful?{" "}
-              <a
-                href="https://github.com/Waqar080206/USAR-Calendar"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-600 hover:text-blue-700 hover:underline font-medium"
-              >
-                Star on GitHub
-              </a>
+            <p className="text-xs text-ink-subtle">
+              {feed.semesters.length} semesters published
             </p>
           </div>
+        </Reveal>
+
+        <div className="mt-5 grid gap-4 xl:mt-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="flex min-w-0 flex-col gap-4">
+            <Reveal delay={0.12}>
+              <Panel className="overflow-hidden p-0">
+                <CalendarToolbar
+                  monthDate={monthDate}
+                  view={state.view}
+                  todayKey={todayKey}
+                  isCurrentMonth={
+                    state.monthKey === toMonthKey(parseDateKey(todayKey))
+                  }
+                  onPrev={() => shiftMonth(-1)}
+                  onNext={() => shiftMonth(1)}
+                  onToday={goToToday}
+                  onView={setView}
+                />
+
+                <ViewTransition
+                  viewKey={`${state.view}:${state.monthKey}:${state.dateKey}`}
+                  direction={directionRef.current}
+                  className="px-2 pb-2 sm:px-3 sm:pb-3"
+                >
+                  <CalendarGrid
+                    scope={scope}
+                    items={semesterItems}
+                    selectedDateKey={state.dateKey}
+                    monthKey={state.monthKey}
+                    view={state.view}
+                    todayKey={todayKey}
+                    onSelectDate={selectDate}
+                  />
+                </ViewTransition>
+              </Panel>
+            </Reveal>
+          </div>
+
+          <div className="flex min-w-0 flex-col gap-4">
+            <Reveal delay={0.16}>
+              <Panel className="p-5">
+                <SidebarHeading
+                  title={isSameDay(selectedDate, parseDateKey(todayKey)) ? "Today" : "Selected day"}
+                  subtitle={format(selectedDate, "EEEE, d MMMM yyyy")}
+                />
+
+                <AnimatePresence mode="wait" initial={false}>
+                  <motion.div
+                    key={selectedItem?.id ?? "empty"}
+                    initial={
+                      prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 12 }
+                    }
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
+                    transition={
+                      prefersReducedMotion
+                        ? { duration: 0.15 }
+                        : { duration: 0.34, ease: [0.16, 1, 0.3, 1] }
+                    }
+                    className="mt-4"
+                  >
+                    {selectedItem ? (
+                      <EventDetail item={selectedItem} />
+                    ) : (
+                      <div className="rounded-2xl border border-dashed border-line/70 px-4 py-10 text-center">
+                        <p className="text-sm font-medium text-ink-muted">
+                          Nothing scheduled on this day.
+                        </p>
+                        <p className="mt-1 text-xs text-ink-subtle">
+                          Pick another date to see its events.
+                        </p>
+                      </div>
+                    )}
+                  </motion.div>
+                </AnimatePresence>
+
+                {selectedDateItems.length > 1 && (
+                  <div className="mt-4 flex flex-col gap-1.5 border-t border-line/50 pt-4">
+                    {selectedDateItems.slice(0, 4).map((item) => {
+                      const meta = eventTypeMeta[item.type];
+
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() =>
+                            setState((current) => ({ ...current, eventId: item.id }))
+                          }
+                          className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-sunken"
+                        >
+                          <span
+                            className={`h-1.5 w-1.5 shrink-0 rounded-full ${meta.accentClass}`}
+                            aria-hidden="true"
+                          />
+                          <span className="min-w-0 flex-1 truncate text-xs font-medium text-ink-muted">
+                            {item.title}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </Panel>
+            </Reveal>
+
+            <Reveal delay={0.2}>
+              <Panel className="p-5">
+                <SidebarHeading
+                  title="Semester progress"
+                  subtitle={`${format(parseDateKey(semester.startDate), "d MMM")} – ${format(parseDateKey(semester.endDate), "d MMM yyyy")}`}
+                />
+
+                <div className="mt-4 flex items-end justify-between gap-3">
+                  <p className="text-3xl font-semibold text-ink tabular-nums">
+                    <CountUp value={progressPercent} suffix="%" />
+                  </p>
+                  <p className="text-xs font-medium text-ink-subtle tabular-nums">
+                    Day <CountUp value={dayOfYear} /> of {stats.totalDays}
+                  </p>
+                </div>
+
+                <AnimatedProgress percent={progressPercent} className="mt-3" />
+
+                <Stagger className="mt-4 grid grid-cols-2 gap-2">
+                  <StatTile
+                    label="Days left"
+                    value={stats.remainingDays}
+                    variants={staggerItem}
+                  />
+                  <StatTile
+                    label="Working left"
+                    value={stats.workingDaysRemaining}
+                    variants={staggerItem}
+                  />
+                </Stagger>
+              </Panel>
+            </Reveal>
+          </div>
+        </div>
+
+        <Reveal delay={0.28}>
+          <footer className="mt-8 flex flex-col items-center justify-between gap-3 border-t border-line/50 pt-6 text-xs text-ink-subtle sm:flex-row">
+            <p>
+              {semester.name} · times shown in {semester.timezone}
+            </p>
+            <a
+              href="https://github.com/Waqar080206/USAR-Calendar"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-brand transition-colors hover:text-brand/75"
+            >
+              Star on GitHub
+            </a>
+          </footer>
+        </Reveal>
+      </div>
+    </div>
+  );
+}
+
+function AmbientBackdrop() {
+  return (
+    <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+      <div className="absolute inset-0 bg-canvas" />
+      <div className="absolute -top-40 -left-32 h-[34rem] w-[34rem] rounded-full bg-[radial-gradient(circle,rgb(var(--aurora-a)/0.22),transparent_65%)] blur-3xl animate-aurora-drift" />
+      <div
+        className="absolute top-1/4 -right-40 h-[30rem] w-[30rem] rounded-full bg-[radial-gradient(circle,rgb(var(--aurora-b)/0.18),transparent_65%)] blur-3xl animate-aurora-drift-slow"
+      />
+      <div className="absolute -bottom-48 left-1/3 h-[32rem] w-[32rem] rounded-full bg-[radial-gradient(circle,rgb(var(--aurora-c)/0.14),transparent_65%)] blur-3xl animate-aurora-drift" />
+      <div className="surface-grid absolute inset-0" />
+      <div className="grain absolute inset-0 opacity-60" />
+    </div>
+  );
+}
+
+function TopBar({
+  semesterName,
+  shareStatus,
+  onShare
+}: {
+  semesterName: string;
+  shareStatus: string | null;
+  onShare: () => void;
+}) {
+  return (
+    <header className="mb-5 flex flex-wrap items-center justify-between gap-3 sm:mb-6">
+      <div className="flex items-center gap-2.5">
+        <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-ink">
+          <Image
+            src="/sm.png"
+            alt=""
+            width={36}
+            height={36}
+            priority
+            className="h-full w-full object-cover"
+          />
+        </span>
+        <div className="leading-tight">
+          <p className="text-sm font-semibold text-ink">USAR Calendar</p>
+          <p className="text-[11px] text-ink-subtle">{semesterName}</p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <ThemeToggle />
+        <motion.button
+          type="button"
+          onClick={onShare}
+          whileTap={{ scale: 0.96 }}
+          className="flex h-10 items-center gap-2 rounded-xl bg-ink px-3.5 text-xs font-semibold text-canvas transition-opacity hover:opacity-90"
+        >
+          <ShareIcon />
+          <span className="hidden sm:inline">
+            {shareStatus ?? "Share"}
+          </span>
+        </motion.button>
+      </div>
+    </header>
+  );
+}
+
+function Hero({
+  semester,
+  todayKey,
+  isLiveToday
+}: {
+  semester: SemesterConfig;
+  todayKey: string;
+  isLiveToday: boolean;
+}) {
+  return (
+    <section className="panel relative overflow-hidden rounded-4xl p-5 sm:p-7 lg:p-9">
+      <div className="surface-grid pointer-events-none absolute inset-0" />
+      <div className="pointer-events-none absolute -top-24 right-0 h-72 w-72 rounded-full bg-[radial-gradient(circle,rgb(var(--brand)/0.16),transparent_70%)] blur-2xl" />
+
+      <div className="relative">
+        <span className="inline-flex items-center gap-2 rounded-full border border-line/60 bg-surface/70 px-3 py-1.5 text-[10px] font-bold tracking-[0.2em] text-ink-muted uppercase">
+          {isLiveToday ? (
+            <>
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="absolute inline-flex h-full w-full rounded-full bg-brand opacity-60 animate-pulse-dot" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-brand" />
+              </span>
+              Semester in progress
+            </>
+          ) : (
+            "Academic calendar"
+          )}
+        </span>
+
+        <h1 className="mt-4 text-3xl font-semibold tracking-tight text-balance text-ink sm:text-4xl lg:text-5xl">
+          Classes, exams and holidays in one view.
+        </h1>
+
+        <p className="mt-3 max-w-xl text-sm leading-relaxed text-pretty text-ink-muted sm:text-[15px]">
+          Built for {semester.name}. Pick a date to see what it means for your
+          schedule, or share a deep link that opens on the exact month, day and
+          event.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function CalendarToolbar({
+  monthDate,
+  view,
+  todayKey,
+  isCurrentMonth,
+  onPrev,
+  onNext,
+  onToday,
+  onView
+}: {
+  monthDate: Date;
+  view: ViewMode;
+  todayKey: string;
+  isCurrentMonth: boolean;
+  onPrev: () => void;
+  onNext: () => void;
+  onToday: () => void;
+  onView: (view: ViewMode) => void;
+}) {
+  const prefersReducedMotion = useReducedMotion();
+
+  return (
+    <div className="flex flex-col gap-3 border-b border-line/50 p-3 sm:p-4 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex items-center justify-between gap-2 lg:justify-start">
+        <div className="flex items-center gap-1">
+          <IconButton label="Previous month" onClick={onPrev}>
+            <ChevronLeftIcon />
+          </IconButton>
+          <IconButton label="Next month" onClick={onNext}>
+            <ChevronRightIcon />
+          </IconButton>
+        </div>
+
+        <div className="lg:ml-2">
+          <h2 className="text-lg font-semibold tracking-tight text-ink sm:text-xl">
+            {format(monthDate, "MMMM yyyy")}
+          </h2>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <motion.button
+          type="button"
+          onClick={onToday}
+          whileTap={prefersReducedMotion ? undefined : { scale: 0.96 }}
+          className="h-9 rounded-lg border border-line/70 px-3 text-xs font-semibold text-ink-muted transition-colors hover:border-brand/40 hover:text-brand"
+        >
+          {isCurrentMonth ? "Today" : `Go to ${format(parseDateKey(todayKey), "d MMM")}`}
+        </motion.button>
+
+        <div
+          role="tablist"
+          aria-label="Calendar view"
+          className="flex rounded-xl border border-line/60 bg-sunken/70 p-1"
+        >
+          {views.map((option) => {
+            const isActive = option.value === view;
+
+            return (
+              <button
+                key={option.value}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => onView(option.value)}
+                className={`relative rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  isActive ? "text-brand-ink" : "text-ink-subtle hover:text-ink"
+                }`}
+              >
+                {isActive && (
+                  <motion.span
+                    layoutId="view-pill"
+                    aria-hidden="true"
+                    className="absolute inset-0 rounded-lg bg-brand"
+                    transition={
+                      prefersReducedMotion
+                        ? { duration: 0 }
+                        : { type: "spring", stiffness: 420, damping: 34 }
+                    }
+                  />
+                )}
+                <span className="relative z-10">{option.label}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>
+  );
+}
+
+function IconButton({
+  label,
+  onClick,
+  children
+}: {
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  const prefersReducedMotion = useReducedMotion();
+
+  return (
+    <motion.button
+      type="button"
+      aria-label={label}
+      onClick={onClick}
+      whileHover={prefersReducedMotion ? undefined : { scale: 1.06 }}
+      whileTap={prefersReducedMotion ? undefined : { scale: 0.92 }}
+      transition={
+        prefersReducedMotion
+          ? { duration: 0 }
+          : { type: "spring", stiffness: 460, damping: 26 }
+      }
+      className="flex h-9 w-9 items-center justify-center rounded-lg border border-line/70 text-ink-muted transition-colors hover:border-brand/40 hover:text-brand"
+    >
+      {children}
+    </motion.button>
+  );
+}
+
+function SidebarHeading({
+  title,
+  subtitle
+}: {
+  title: string;
+  subtitle: string;
+}) {
+  return (
+    <div>
+      <h3 className="text-[10px] font-bold tracking-[0.18em] text-ink-subtle uppercase">
+        {title}
+      </h3>
+      <p className="mt-1 text-sm font-semibold text-ink">{subtitle}</p>
+    </div>
+  );
+}
+
+function StatTile({
+  label,
+  value,
+  variants
+}: {
+  label: string;
+  value: number;
+  variants?: Variants;
+}) {
+  return (
+    <motion.div
+      variants={variants}
+      className="rounded-xl border border-line/50 bg-sunken/50 px-2.5 py-2.5"
+    >
+      <p className="text-[9px] font-bold tracking-[0.1em] text-ink-subtle uppercase">
+        {label}
+      </p>
+      <p className="mt-0.5 text-lg font-semibold text-ink tabular-nums">
+        <CountUp value={value} />
+      </p>
+    </motion.div>
+  );
+}
+
+function EventDetail({ item }: { item: CalendarItem }) {
+  const prefersReducedMotion = useReducedMotion();
+  const meta = eventTypeMeta[item.type];
+
+  return (
+    <motion.article
+      whileHover={prefersReducedMotion ? undefined : { y: -2 }}
+      transition={
+        prefersReducedMotion
+          ? { duration: 0 }
+          : { type: "spring", stiffness: 340, damping: 30 }
+      }
+      className={`relative overflow-hidden rounded-2xl p-4 ring-1 ring-inset ${meta.surfaceClass}`}
+    >
+      <span
+        className={`absolute inset-y-0 left-0 w-1 ${meta.accentClass}`}
+        aria-hidden="true"
+      />
+
+      <span
+        className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[10px] font-bold tracking-wide uppercase ${meta.chipClass} ring-1 ring-inset`}
+      >
+        {meta.label}
+      </span>
+
+      <h4 className="mt-3 text-[15px] leading-snug font-semibold text-balance text-ink">
+        {item.title}
+      </h4>
+
+      <dl className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-[11px] text-ink-muted">
+        <div className="flex items-center gap-1.5">
+          <dt className="text-ink-subtle">When</dt>
+          <dd className="font-semibold">{getDisplayRange(item)}</dd>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <dt className="text-ink-subtle">Length</dt>
+          <dd className="font-semibold">{getDurationLabel(item)}</dd>
+        </div>
+      </dl>
+
+      {item.description && (
+        <p className="mt-3 border-t border-current/10 pt-3 text-xs leading-relaxed text-pretty text-ink-muted">
+          {item.description}
+        </p>
+      )}
+
+      {item.source && (
+        <p className="mt-3 text-[10px] font-medium tracking-wide text-ink-subtle uppercase">
+          {item.source}
+        </p>
+      )}
+    </motion.article>
+  );
+}
+
+function ChevronLeftIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="m14.5 6-6 6 6 6" />
+    </svg>
+  );
+}
+
+function ChevronRightIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="m9.5 6 6 6-6 6" />
+    </svg>
+  );
+}
+
+function ChevronIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="m6 9.5 6 6 6-6" />
+    </svg>
+  );
+}
+
+function ShareIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="17.5" cy="6" r="2.6" />
+      <circle cx="6.5" cy="12" r="2.6" />
+      <circle cx="17.5" cy="18" r="2.6" />
+      <path d="m8.9 10.7 6.3-3.4M8.9 13.3l6.3 3.4" />
+    </svg>
   );
 }

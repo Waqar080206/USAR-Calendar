@@ -1,18 +1,21 @@
 # USAR Calendar Portal
 
-A clean, simple one-page calendar application for visualizing academic events, exams, holidays, and deadlines. Built with **Next.js 14**, **React 18**, and **TypeScript**, styled with **Tailwind CSS**.
+A premium academic calendar for visualizing classes, exams, holidays, and deadlines, with month/week/agenda views, shareable deep links, a working days calculator, dark mode, and motion design. Built with **Next.js 14**, **React 18**, **TypeScript**, **Tailwind CSS**, and **Framer Motion**.
 
-**Current Semester:** USAR Even Semester 2026 (Jan 16 - Jul 31, 2026)
+**Published Semesters:** USAR Odd Semester 2026-27 (Aug 3, 2026 - Jan 17, 2027) and Even Semester 2026-27 (Jan 18 - Jul 18, 2027). Visitors land on whichever term contains today and can switch with the semester tabs.
 
 ## Features
 
-- 📅 **Month Grid Calendar** - View full month at a glance (like Google Calendar)
-- 🎨 **Color-Coded Events** - Different colors for exam, holiday, deadline, class, registration, break, and notice events
-- 📋 **Event Details** - Click any date to see full event descriptions below the calendar
-- 🔄 **Easy Navigation** - Previous/Next month buttons and quick "Today" button
-- 📱 **Responsive Design** - Works perfectly on desktop and mobile devices
-- ⚡ **Fast & Lightweight** - No external dependencies for calendar logic, minimal bundle size
-- 🎯 **Hardcoded Data** - Events embedded directly in code for instant loading
+- 📅 **Three Views** - Month grid, week strip, and agenda list, with directional slide transitions between them
+- 🔀 **Semester Switcher** - Odd/even term tabs that resolve the whole portal (grid, stats, progress, calculator) to the selected term
+- 🎨 **Color-Coded Events** - Seven event types, each with a chip, accent dot, and gradient
+- 🌗 **Dark Mode** - System-aware light/dark/auto toggle, persisted, no flash on load
+- ✨ **Motion Design** - Spring transitions, layout animations, animated progress and count-ups, all respecting `prefers-reduced-motion`
+- 🔗 **Deep Links** - Month, date, view, event, and filters all sync to the URL for sharing
+- 🧮 **Working Days Calculator** - Counts working days, holidays, and off days for any range
+- 📊 **Semester Progress** - Elapsed/remaining days, working days left, and a per-type month breakdown
+- 🎛️ **Type Filters** - Toggle event types, with live counts per type
+- 📱 **Responsive** - Month view stays a month on mobile, but as a readable vertical date list instead of a cramped 7-column grid
 
 ## Quick Start
 
@@ -48,63 +51,104 @@ npm start
 ```
 .
 ├── app/
-│   ├── page.tsx           # Main page entry point
-│   ├── layout.tsx         # Root layout with global styles
-│   └── globals.css        # Global styles
+│   ├── page.tsx                  # Server entry, reads searchParams for deep links
+│   ├── layout.tsx                # Root layout, metadata, theme no-flash script
+│   └── globals.css               # Semantic color tokens, dark mode, base styles
 ├── components/
-│   ├── simple-calendar.tsx # Main calendar component
-│   └── stat-chip.tsx       # Statistics badge component
+│   ├── simple-calendar.tsx       # Main shell: state, deep links, layout
+│   ├── calendar-grid.tsx         # Month / week / agenda views + filter chips
+│   ├── semester-switcher.tsx     # Odd/even term tabs + default term resolution
+│   ├── motion-primitives.tsx     # Reveal, Stagger, Panel, ViewTransition, CountUp
+│   ├── working-days-calculator.tsx
+│   └── theme-toggle.tsx
 ├── lib/
-│   ├── calendar.ts         # Calendar utilities & functions
-│   ├── types.ts            # TypeScript type definitions
-│   ├── utils.ts            # Helper utilities
+│   ├── calendar.ts               # Pure date logic (no React)
+│   ├── theme.ts                  # Theme preference + no-flash script
+│   ├── types.ts
+│   ├── utils.ts
 │   └── data/
-│       └── ipu-calendar.ts # Hardcoded event data
-├── public/                 # Static assets
-├── package.json            # Project dependencies
-├── tsconfig.json           # TypeScript configuration
-└── tailwind.config.ts      # Tailwind CSS configuration
+│       └── ipu-calendar.ts       # Hardcoded semester, event and holiday data
+├── __tests__/
+│   └── calendar-utils.test.ts    # 67 tests over lib/calendar.ts
+├── package.json
+├── tsconfig.json
+└── tailwind.config.ts
 ```
+
+### Design system
+
+Colors are defined once as CSS custom properties in `app/globals.css` and exposed
+to Tailwind as semantic tokens: `canvas`, `surface`, `elevated`, `sunken`, `line`,
+`ink`, `ink-muted`, `ink-subtle`, `brand`. Dark mode flips the variables, so no
+component needs a separate dark palette. Prefer these tokens over raw Tailwind
+colors in new UI.
 
 ## How It Works
 
 ### Calendar Display
 
 The calendar shows:
-- **Full month grid** with 6 weeks (like Google Calendar)
-- **Dates from adjacent months** in lighter gray
-- **Today highlighted** in blue
-- **Selected date** with blue ring border
-- **Event badges** on each date (up to 2, with "+X more" indicator)
+- **Flat 7-column month grid** on desktop and tablet, weekday names across the top
+- **Vertical date list** on mobile, still month-scoped, so dates read downward instead of being squeezed
+- **Adjacent month dates** dimmed
+- **Today** marked with a filled brand pill
+- **Selected date** ring that springs between cells
+- **Event chips** per date (up to 3, with "+X more")
+- **Non-working days** labelled so weekends and holidays are obvious
 
 ### Event Types & Colors
 
 | Type | Color | Use Case |
 |------|-------|----------|
-| **Exam** | 🔴 Red | Exams & assessments |
-| **Holiday** | 🟡 Yellow | National/local holidays |
+| **Exam** | 🔴 Rose | Exams & assessments |
+| **Holiday** | 🟡 Amber | National/local holidays |
 | **Deadline** | 🟠 Orange | Assignment/project deadlines |
-| **Class** | 🔵 Blue | Regular classes & lectures |
-| **Registration** | 🟢 Green | Course/exam registration periods |
-| **Break** | 🟣 Purple | Holiday/semester breaks |
-| **Notice** | ⚪ Gray | General notices & announcements |
+| **Class** | 🔵 Sky | Regular classes & lectures |
+| **Registration** | 🟢 Emerald | Course/exam registration periods |
+| **Break** | 🟣 Violet | Holiday/semester breaks |
+| **Notice** | ⚪ Slate | General notices & announcements |
+
+### Deep links
+
+The URL is the source of truth for shareable state:
+
+```
+/?sem=odd-2026-27&month=2026-11&date=2026-11-18&view=week&event=odd-2026-27-midterm-2&types=exam,holiday
+```
+
+| Param | Values |
+|-------|--------|
+| `sem` | Semester id, e.g. `odd-2026-27` |
+| `month` | `YYYY-MM` |
+| `date` | `YYYY-MM-DD` |
+| `view` | `month` \| `week` \| `agenda` |
+| `event` | Event id |
+| `types` | Comma-separated event types |
+
+Invalid values fall back to today / month view rather than erroring. An unknown `sem`
+falls back to the term containing today, then to the most recent one that has started.
 
 ### Event Data Structure
 
-Events are defined in `lib/data/ipu-calendar.ts`:
+Events are defined in `lib/data/ipu-calendar.ts` and each one names the semester it
+belongs to via `semesterId`:
 
 ```typescript
 {
-  id: "classes-begin",
-  title: "Regular Classes Begin",
-  type: "class",
-  startDate: "2026-01-15",
-  endDate: "2026-01-15",
+  id: "odd-2026-27-midterm-2",
+  semesterId: "odd-2026-27",
+  title: "Mid-Term Examinations - II",
+  type: "exam",
+  startDate: "2026-11-16",
+  endDate: "2026-11-21",
   allDay: true,
-  description: "Teaching schedule becomes active across all institutes.",
+  description: "Second mid-term examination period.",
   source: "Academic Calendar PDF"
 }
 ```
+
+Holidays are deliberately **not** scoped to a semester: the gazetted list for a year
+applies to every term, so `holidays` stays a single calendar-wide array.
 
 **Date Format:** `YYYY-MM-DD` (ISO 8601)
 
@@ -114,31 +158,39 @@ Events are defined in `lib/data/ipu-calendar.ts`:
 
 ### Method 1: Direct Code Entry (Current)
 
-Edit `lib/data/ipu-calendar.ts` and add events to the `events` array:
+Edit `lib/data/ipu-calendar.ts` and add entries to `events` (or `holidays`):
 
 ```typescript
 export const ipuCalendarFeed: CalendarFeed = {
-  semester: {
-    name: "IPU Even Semester 2026",
-    startDate: "2026-01-12",
-    endDate: "2026-06-15",
-    workingWeekdays: [1, 2, 3, 4, 5, 6], // Mon-Sat
-    timezone: "Asia/Kolkata"
-  },
+  semesters: [
+    {
+      id: "odd-2026-27",
+      name: "Odd Semester 2026-27",
+      shortName: "Odd 26-27",
+      term: "odd",
+      startDate: "2026-08-03",
+      endDate: "2027-01-17",
+      session: "2026-27",
+      workingWeekdays: [1, 2, 3, 4, 5], // 0=Sun ... 6=Sat (Mon-Fri)
+      timezone: "Asia/Kolkata"
+    }
+    // Add more semesters here, newest first
+  ],
   events: [
     {
       id: "event-1",
+      semesterId: "odd-2026-27",
       title: "Event Title",
       type: "class",
-      startDate: "2026-03-15",
-      endDate: "2026-03-15",
+      startDate: "2026-11-16",
+      endDate: "2026-11-21",
       allDay: true,
       description: "Event description",
       source: "Calendar PDF"
     }
     // Add more events here
   ],
-  holidays: [ /* ... */ ],
+  holidays: [ /* ... */ ],       // calendar-wide, not per semester
   announcements: [ /* ... */ ]
 }
 ```
@@ -166,15 +218,17 @@ Regular Classes Begin - January 15, 2026
 | `npm run build` | Create production build |
 | `npm start` | Run production server |
 | `npm run typecheck` | Run TypeScript type checking |
-| `npm test` | Run unit tests |
+| `npm test` | Run unit tests (67 tests) |
 
 ## Technology Stack
 
 - **Framework:** Next.js 14.2
 - **Runtime:** Node.js 18+
 - **Language:** TypeScript 5.7
-- **UI Styling:** Tailwind CSS 3.4
+- **UI Styling:** Tailwind CSS 3.4 with semantic color tokens
+- **Animation:** Framer Motion 14
 - **Date Handling:** date-fns 3.6
+- **Tests:** node:test with tsx
 - **Build Tool:** Webpack (via Next.js)
 
 ## Browser Support
@@ -188,43 +242,60 @@ Regular Classes Begin - January 15, 2026
 
 ### Change Semester Details
 
-Edit `lib/data/ipu-calendar.ts`:
+Edit the matching entry in `semesters` inside `lib/data/ipu-calendar.ts`:
 
 ```typescript
-semester: {
-  name: "USAR Even Semester 2026",
-  startDate: "2026-01-16",
-  endDate: "2026-07-31",
+{
+  id: "odd-2026-27",           // also the value used by the ?sem= deep link
+  name: "Odd Semester 2026-27",
+  shortName: "Odd 26-27",      // label on the switcher tab
+  term: "odd",
+  startDate: "2026-08-03",
+  endDate: "2027-01-17",
+  session: "2026-27",
   workingWeekdays: [1, 2, 3, 4, 5], // 0=Sun, 1=Mon, ..., 6=Sat (Mon-Fri = 5 days/week)
   timezone: "Asia/Kolkata"
 }
 ```
 
+Order the array newest-first: the first entry is the fallback when no `?sem=` is given
+and no term contains today.
+
 ### Change Colors
 
-Edit `lib/calendar.ts` and modify `eventTypeMeta`:
+Edit `eventTypeMeta` in `lib/calendar.ts`. Each entry carries a chip, an accent dot,
+a selected surface, an outline, and a gradient:
 
 ```typescript
 exam: {
   label: "Exam",
-  chipClass: "bg-rose-100 text-rose-800",      // Light background
-  surfaceClass: "bg-rose-50/80 text-rose-900", // Subtle hover
-  dotClass: "bg-rose-500"                       // Calendar badge
+  shortLabel: "Exam",
+  accentClass: "bg-rose-500",
+  chipClass: "bg-rose-100 text-rose-900 ring-rose-600/15 dark:bg-rose-400/15 dark:text-rose-200",
+  surfaceClass: "bg-rose-50/90 text-rose-950 dark:bg-rose-400/12 dark:text-rose-100",
+  outlineClass: "border-rose-500/30 bg-rose-500/8 text-rose-800 dark:text-rose-200",
+  gradientClass: "from-rose-400 to-rose-600"
 }
 ```
 
-### Modify Calendar Styling
+### Change Global Theming
 
-Global styles: `app/globals.css`  
-Component styles: `components/simple-calendar.tsx`  
-Tailwind config: `tailwind.config.ts`
+Semantic tokens live in `app/globals.css` under `:root` and `.dark`. Adjust the RGB
+triples to retheme the whole app without touching components.
+
+### Working Days
+
+`workingWeekdays` in `lib/data/ipu-calendar.ts` is the single source of truth, where
+`0` is Sunday. `isWorkingDayKey()` applies it, so the header stat and the calculator
+can never disagree. Holidays are always excluded, and a holiday wins over a weekend
+so the breakdown buckets never double count.
 
 ## Performance
 
-- **Load Time:** ~100ms (with cached dependencies)
-- **Bundle Size:** ~150KB (gzipped)
-- **Interactive:** <200ms time to interactive
-- **No external APIs:** Instant rendering, works offline
+- **First Load JS:** ~155 KB (up from ~98 KB before the redesign; framer-motion adds ~35 KB gzipped)
+- **Server Rendered:** deep-link state renders on the server, no flash
+- **No external APIs:** all data is bundled, works offline
+- **Reduced Motion:** `prefers-reduced-motion` disables transforms and springs throughout
 
 ## Troubleshooting
 
@@ -259,14 +330,12 @@ npm install
 
 ## Future Enhancements
 
-- [ ] PDF upload & parsing
+- [ ] PDF upload & parsing (`pdf-parse` / `pdfjs-dist` are already installed)
 - [ ] Event CRUD operations (add/edit/delete)
-- [ ] Multiple semester support
-- [ ] Filter by event type
-- [ ] Dark mode
+- [x] Multiple semester support
 - [ ] Export to Google Calendar / iCal
 - [ ] Email notifications for upcoming events
-- [ ] Mobile app (React Native)
+- [ ] Keyboard grid navigation (arrow keys between dates)
 
 ## License
 
@@ -290,23 +359,33 @@ For issues or questions:
 
 ---
 
-## Current Calendar Events (USAR Even Semester 2026)
+## Current Calendar Events (2026-27 Session)
 
-### Key Dates
+### Odd Semester 2026-27 (Aug 3, 2026 - Jan 17, 2027)
 
-- **Classes:** Jan 16 - May 21, 2026 (5-day week)
-- **Mid Term I:** Mar 2-14, 2026
-- **Mid Term II:** Apr 20-25, 2026
-- **Practical Exams:** May 1-21, 2026
-- **Theory Exams:** May 22 - Jun 13, 2026
-- **Internship (4th & 6th sem):** Jun 15 - Jul 31, 2026
+- **Instruction (18 weeks, 5-day week):** Aug 3 - Dec 6, 2026
+- **Smart India Hackathon 2026 (internal, tentative):** Aug 24-25, 2026
+- **Mid-Term I:** Sep 21-26, 2026
+- **Sports Meet:** Oct 14-16, 2026
+- **Elysian 2026 & Heritage Fest:** Oct 21-24, 2026
+- **Mid-Term II:** Nov 16-21, 2026
+- **Internal Lab / Practical Exams:** Nov 23-27, 2026
+- **Term End Practical Exams:** Nov 30 - Dec 10, 2026
+- **Term End Theory (incl. preparatory leave):** Dec 11, 2026 - Jan 3, 2027
+- **Winter Vacation:** Jan 4-17, 2027
 
-### Notable Events
+### Even Semester 2026-27 (Jan 18 - Jul 18, 2027)
 
-- 🎭 **Anugoonj 2026** - Cultural Festival (Feb 4-6)
-- 🤖 **Prompt Craft: GenAI Summit 2026** (Apr 6)
-- 👋 **Afsana 2.0 Farewell** (Apr 29)
-- 📚 **Faculty Development Program** (Apr 20-25)
+- **Instruction (18 weeks, 5-day week):** Jan 18 - May 23, 2027
+- **Anugoonj:** Feb 3-5, 2027
+- **Term End Examinations (incl. preparatory leave):** May 24 - Jun 20, 2027
+- **Summer Vacation:** Jun 21 - Jul 18, 2027
+
+### Holidays
+
+Only dates that are fixed or already gazetted are listed. Lunar 2027 festivals are
+deliberately left out until the official notification is issued, so add them to
+`holidays` once published rather than guessing.
 
 ---
 
@@ -325,4 +404,4 @@ If you find this calendar useful, please consider starring the repository on Git
 
 ---
 
-*Last Updated: March 2026*
+*Last Updated: multi-semester release (2026-27 session)*
