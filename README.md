@@ -1,20 +1,18 @@
 # USAR Calendar Portal
 
-A premium academic calendar for visualizing classes, exams, holidays, and deadlines, with month/week/agenda views, shareable deep links, a working days calculator, dark mode, and motion design. Built with **Next.js 14**, **React 18**, **TypeScript**, **Tailwind CSS**, and **Framer Motion**.
+A premium academic calendar for visualizing classes, exams, holidays, and deadlines, with month/week/agenda views, an odd/even semester switcher, shareable deep links, dark mode, and motion design. Built with **Next.js 14**, **React 18**, **TypeScript**, **Tailwind CSS**, and **Framer Motion**.
 
 **Published Semesters:** USAR Odd Semester 2026-27 (Aug 3, 2026 - Jan 17, 2027) and Even Semester 2026-27 (Jan 18 - Jul 18, 2027). Visitors land on whichever term contains today and can switch with the semester tabs.
 
 ## Features
 
 - 📅 **Three Views** - Month grid, week strip, and agenda list, with directional slide transitions between them
-- 🔀 **Semester Switcher** - Odd/even term tabs that resolve the whole portal (grid, stats, progress, calculator) to the selected term
+- 🔀 **Semester Switcher** - Odd/even term tabs that resolve the whole portal (grid, progress, sidebar) to the selected term
 - 🎨 **Color-Coded Events** - Seven event types, each with a chip, accent dot, and gradient
 - 🌗 **Dark Mode** - System-aware light/dark/auto toggle, persisted, no flash on load
 - ✨ **Motion Design** - Spring transitions, layout animations, animated progress and count-ups, all respecting `prefers-reduced-motion`
-- 🔗 **Deep Links** - Month, date, view, event, and filters all sync to the URL for sharing
-- 🧮 **Working Days Calculator** - Counts working days, holidays, and off days for any range
-- 📊 **Semester Progress** - Elapsed/remaining days, working days left, and a per-type month breakdown
-- 🎛️ **Type Filters** - Toggle event types, with live counts per type
+- 🔗 **Deep Links** - Semester, month, date, view, and event all sync to the URL for sharing
+- 📊 **Semester Progress** - Percentage complete, day count, days left and working days left
 - 📱 **Responsive** - Month view stays a month on mobile, but as a readable vertical date list instead of a cramped 7-column grid
 
 ## Quick Start
@@ -56,10 +54,10 @@ npm start
 │   └── globals.css               # Semantic color tokens, dark mode, base styles
 ├── components/
 │   ├── simple-calendar.tsx       # Main shell: state, deep links, layout
-│   ├── calendar-grid.tsx         # Month / week / agenda views + filter chips
+│   ├── calendar-grid.tsx         # Month / week / agenda views
 │   ├── semester-switcher.tsx     # Odd/even term tabs + default term resolution
 │   ├── motion-primitives.tsx     # Reveal, Stagger, Panel, ViewTransition, CountUp
-│   ├── working-days-calculator.tsx
+│   ├── use-today-key.ts          # Keeps "today" current across midnight
 │   └── theme-toggle.tsx
 ├── lib/
 │   ├── calendar.ts               # Pure date logic (no React)
@@ -113,7 +111,7 @@ The calendar shows:
 The URL is the source of truth for shareable state:
 
 ```
-/?sem=odd-2026-27&month=2026-11&date=2026-11-18&view=week&event=odd-2026-27-midterm-2&types=exam,holiday
+/?sem=odd-2026-27&month=2026-11&date=2026-11-18&view=week&event=odd-2026-27-midterm-2
 ```
 
 | Param | Values |
@@ -123,7 +121,6 @@ The URL is the source of truth for shareable state:
 | `date` | `YYYY-MM-DD` |
 | `view` | `month` \| `week` \| `agenda` |
 | `event` | Event id |
-| `types` | Comma-separated event types |
 
 Invalid values fall back to today / month view rather than erroring. An unknown `sem`
 falls back to the term containing today, then to the most recent one that has started.
@@ -283,12 +280,15 @@ exam: {
 Semantic tokens live in `app/globals.css` under `:root` and `.dark`. Adjust the RGB
 triples to retheme the whole app without touching components.
 
-### Working Days
+### Working Days and Holidays
 
 `workingWeekdays` in `lib/data/ipu-calendar.ts` is the single source of truth, where
-`0` is Sunday. `isWorkingDayKey()` applies it, so the header stat and the calculator
-can never disagree. Holidays are always excluded, and a holiday wins over a weekend
-so the breakdown buckets never double count.
+`0` is Sunday. `isWorkingDayKey()` applies it, so the day styling and the "working
+days left" stat can never disagree. Holidays are always excluded from working days.
+
+A holiday that falls on a Saturday or Sunday is not marked, because the day is
+already a non-working day; `isMarkedHoliday()` in `lib/calendar.ts` is what drops
+those, so such dates show as plain weekends instead of amber holidays.
 
 ## Performance
 
@@ -363,7 +363,7 @@ For issues or questions:
 
 ### Odd Semester 2026-27 (Aug 3, 2026 - Jan 17, 2027)
 
-- **Instruction (18 weeks, 5-day week):** Aug 3 - Dec 6, 2026
+- **Instruction (18 weeks, 5-day week):** Aug 3 - Dec 6, 2026 (not rendered as a calendar event)
 - **Smart India Hackathon 2026 (internal, tentative):** Aug 24-25, 2026
 - **Mid-Term I:** Sep 21-26, 2026
 - **Sports Meet:** Oct 14-16, 2026
@@ -376,7 +376,7 @@ For issues or questions:
 
 ### Even Semester 2026-27 (Jan 18 - Jul 18, 2027)
 
-- **Instruction (18 weeks, 5-day week):** Jan 18 - May 23, 2027
+- **Instruction (18 weeks, 5-day week):** Jan 18 - May 23, 2027 (not rendered as a calendar event)
 - **Anugoonj:** Feb 3-5, 2027
 - **Term End Examinations (incl. preparatory leave):** May 24 - Jun 20, 2027
 - **Summer Vacation:** Jun 21 - Jul 18, 2027

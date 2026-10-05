@@ -40,18 +40,6 @@ export const ipuCalendarFeed: CalendarFeed = {
       source: "Academic Calendar PDF"
     },
     {
-      id: "odd-2026-27-instruction",
-      semesterId: "odd-2026-27",
-      title: "Teaching & Continuous Evaluation (18 weeks)",
-      type: "class",
-      startDate: "2026-08-03",
-      endDate: "2026-12-06",
-      allDay: true,
-      description:
-        "Imparting of instruction and/or laboratory work including continuous evaluation by teachers, semester lab/practical/term paper evaluation and NUES. 18 week duration on a 5 day working week.",
-      source: "Academic Calendar PDF"
-    },
-    {
       id: "odd-2026-27-siah",
       semesterId: "odd-2026-27",
       title: "Smart India Hackathon 2026 - Internal (Tentative)",
@@ -231,18 +219,6 @@ export const ipuCalendarFeed: CalendarFeed = {
       source: "Academic Calendar PDF"
     },
 
-    {
-      id: "even-2026-27-instruction",
-      semesterId: "even-2026-27",
-      title: "Teaching & Continuous Evaluation (18 weeks)",
-      type: "class",
-      startDate: "2027-01-18",
-      endDate: "2027-05-23",
-      allDay: true,
-      description:
-        "Imparting of instruction and/or laboratory work including continuous evaluation by teachers, semester lab/practical/term paper evaluation and NUES for Even Semesters (Second, Fourth, Sixth, Eighth and Tenth). 18 week duration on a 5 day working week.",
-      source: "Academic Calendar PDF"
-    },
     {
       id: "even-2026-27-anugoonj",
       semesterId: "even-2026-27",

@@ -7,7 +7,7 @@ import { ipuCalendarFeed } from "@/lib/data/ipu-calendar";
 export const metadata: Metadata = {
   title: "Academic Calendar · Exams, Holidays & Deadlines",
   description:
-    "Official USAR academic calendar: odd and even semester classes, exams, holidays, deadlines and a working days calculator with shareable deep links."
+    "Official USAR academic calendar: odd and even semester classes, exams, holidays and deadlines, with shareable deep links."
 };
 
 type HomePageProps = {

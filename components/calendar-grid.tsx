@@ -17,7 +17,7 @@ import {
   toDateKey,
   toMonthKey
 } from "@/lib/calendar";
-import { CalendarEventType, SemesterScope } from "@/lib/types";
+import { SemesterScope } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const weekdayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -690,85 +690,5 @@ function AgendaRow({
         )}
       </div>
     </motion.button>
-  );
-}
-
-export function EventLegend({
-  items,
-  activeTypes,
-  onToggleType,
-  onReset
-}: {
-  items: CalendarItem[];
-  activeTypes: CalendarEventType[];
-  onToggleType: (type: CalendarEventType) => void;
-  onReset: () => void;
-}) {
-  const prefersReducedMotion = useReducedMotion();
-
-  const counts = useMemo(() => {
-    const map = new Map<CalendarEventType, number>();
-    items.forEach((item) => map.set(item.type, (map.get(item.type) ?? 0) + 1));
-    return map;
-  }, [items]);
-
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between gap-3">
-        <h3 className="text-xs font-bold tracking-[0.16em] text-ink-subtle uppercase">
-          Filters
-        </h3>
-        {activeTypes.length > 0 && (
-          <motion.button
-            type="button"
-            onClick={onReset}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-[11px] font-semibold text-brand transition-colors hover:text-brand/80"
-          >
-            Reset
-          </motion.button>
-        )}
-      </div>
-
-      <div className="flex flex-wrap gap-1.5">
-        {(Object.keys(eventTypeMeta) as CalendarEventType[]).map((type) => {
-          const meta = eventTypeMeta[type];
-          const isActive = activeTypes.length === 0 || activeTypes.includes(type);
-
-          return (
-            <motion.button
-              key={type}
-              type="button"
-              onClick={() => onToggleType(type)}
-              aria-pressed={isActive}
-              whileTap={prefersReducedMotion ? undefined : { scale: 0.95 }}
-              transition={
-                prefersReducedMotion
-                  ? { duration: 0 }
-                  : { type: "spring", stiffness: 420, damping: 30 }
-              }
-              className={cn(
-                "flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[11px] font-semibold transition-all",
-                isActive
-                  ? meta.outlineClass
-                  : "border-line/60 bg-transparent text-ink-subtle opacity-55"
-              )}
-            >
-              <span
-                className={cn(
-                  "h-1.5 w-1.5 rounded-full transition-opacity",
-                  meta.accentClass,
-                  !isActive && "opacity-40"
-                )}
-                aria-hidden="true"
-              />
-              {meta.label}
-              <span className="tabular-nums opacity-60">{counts.get(type) ?? 0}</span>
-            </motion.button>
-          );
-        })}
-      </div>
-    </div>
   );
 }

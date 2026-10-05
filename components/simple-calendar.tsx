@@ -303,7 +303,7 @@ export function SimpleCalendar({
       if (navigator.share) {
         await navigator.share({
           title: `${semester.name} calendar`,
-          text: "Academic calendar, holidays and working days in one place.",
+          text: "Academic calendar, classes, exams and holidays in one place.",
           url
         });
         setShareStatus("Shared");
@@ -842,14 +842,6 @@ function ChevronRightIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
       <path d="m9.5 6 6 6-6 6" />
-    </svg>
-  );
-}
-
-function ChevronIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <path d="m6 9.5 6 6 6-6" />
     </svg>
   );
 }
