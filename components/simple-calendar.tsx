@@ -333,7 +333,7 @@ export function SimpleCalendar({
         </Reveal>
 
         <Reveal delay={0.06}>
-          <Hero semester={semester} todayKey={todayKey} isLiveToday={isLiveToday} />
+          <Hero semester={semester} isLiveToday={isLiveToday} />
         </Reveal>
 
         <Reveal delay={0.09}>
@@ -572,11 +572,9 @@ function TopBar({
 
 function Hero({
   semester,
-  todayKey,
   isLiveToday
 }: {
   semester: SemesterConfig;
-  todayKey: string;
   isLiveToday: boolean;
 }) {
   return (
@@ -600,13 +598,14 @@ function Hero({
         </span>
 
         <h1 className="mt-4 text-3xl font-semibold tracking-tight text-balance text-ink sm:text-4xl lg:text-5xl">
-          Classes, exams and holidays in one view.
+          GGSIPU Academic Calendar 2026&ndash;27
         </h1>
 
         <p className="mt-3 max-w-xl text-sm leading-relaxed text-pretty text-ink-muted sm:text-[15px]">
-          Built for {semester.name}. Pick a date to see what it means for your
-          schedule, or share a deep link that opens on the exact month, day and
-          event.
+          Interactive academic calendar for IPU and USAR students, with semester
+          dates, examinations, holidays and campus events. Built for{" "}
+          {semester.name}. Pick a date to see what it means for your schedule, or
+          share a deep link that opens on the exact month, day and event.
         </p>
       </div>
     </section>
